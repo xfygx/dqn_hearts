@@ -94,6 +94,20 @@ class HeartsEnv(gym.Env):
             l = []
         return l + [v] * (n - len(l))
 
+    # return :
+    # 0 ~ 3 
+    # hand cards
+    # outgoing cards
+    # incoming cards
+    # score cards
+    # score
+    # start_pos
+    # current_pos
+    # 
+
+    def get_current_situation(self):
+        return 
+
     def _get_current_state(self):
         player_states = []
         for idx, player in enumerate(self._table.players):

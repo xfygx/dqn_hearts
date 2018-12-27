@@ -244,6 +244,36 @@ class BotProxy:
 
         return self.trainer.train_round(pre_state, reward, cur_state, valid_actions) # 送入网络
 
+    def cards_to_exchange(self, obs):
+        return draws
+
+    def run_a_round(self):
+        for i in range(0, 4):
+            action, valid_actions = self.bots[cur_pos].declare_action(player_obs, obs[1]) 
+            self.env.step(action)
+
+        self.train_round()
+
+    def run_a_deal(self, obs):
+        # exchange
+        # for 4
+        #     step => state
+        #     if done , do train
+        # return 
+        
+        # start_pos is 2C owner
+        for i in range(0, 4):
+            self.bots[i].
+            draws = card_to_exchange(obs)
+            action = , draws
+            self.env.step(action)
+
+        for i in range(0, 13):
+            run_a_round()
+
+        return
+
+
     def run_once(self):
         obs = self.env.reset()   # 游戏开始
         done = False
