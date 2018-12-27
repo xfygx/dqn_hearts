@@ -261,7 +261,7 @@ class BotProxy:
         #     if done , do train
         # return 
         
-        # start_pos is 2C owner
+        obs = self.env.get_current_env()
         for i in range(0, 4):
             self.bots[i].
             draws = card_to_exchange(obs)

@@ -48,6 +48,8 @@ class Player():
         self.hand = []             # 手上的牌
         self.income = []           # 吃下的牌
         self.outgoing = []         # 打出去的牌
+        self.exchange_out = []     # 交换出去的牌
+        self.exchange_in = []      # 交换进来的牌
         self.valid_actions = []    # 当前可用动作
         self.score = 0             # 得分
         self.deal_score = 0        
@@ -91,9 +93,9 @@ class Table():
 
     def reset(self):
         self.n_round = 0
-        self.start_pos = 0            # round 的起手牌位置
-        self.cur_pos = 0              # 当前玩家
-        self.bank = [None for _ in range(n_players)]     # 交换的牌??
+        self.start_pos = 0                               # 每轮的起手牌位置
+        self.cur_pos = 0                                 # 当前玩家
+        self.bank = [None for _ in range(n_players)]     # 交换的牌
         self.exchanged = False
         self.heart_occur = False
         self.board = [None for _ in range(n_players)]     # round 打下的牌
@@ -127,7 +129,7 @@ class Table():
         self.backup = [None for _ in range(n_players)]
 
     def _need_exchange(self):
-        # if not self.exchanged and self.n_games % 4 != 0: # 为什么每4盘就不换牌？
+        # if not self.exchanged and self.n_games % 4 != 0: # 修改为每盘都交换牌
         if not self.exchanged:
             return True
         return False
@@ -154,7 +156,7 @@ class Table():
                 return i
         return None
 
-    def _find_clubs_2(self):
+    def _find_clubs_2(self): # 寻找梅花2 0C
         for i, player in enumerate(self.players):
             if (0, C) in player.hand:
                 self.start_pos = i         
@@ -162,7 +164,7 @@ class Table():
 
         self.cur_pos = self.start_pos
 
-    def _find_hearts_A(self):
+    def _find_hearts_A(self):  # 寻找红心A   12H
         for i, player in enumerate(self.players):
             if (12, H) in player.hand:
                 self.start_pos = i
@@ -239,25 +241,30 @@ class Table():
 
             self.bank[cur_pos] = draws
             for draw in draws:
-                self.players[cur_pos].hand.remove(draw)
+                self.players[cur_pos].hand.remove(draw)           # 交换牌，从手牌中移出一张
+                self.players[cur_pos].exchange_out += draw        # 交换牌，移出的牌记下来
 
-            if None not in self.bank:
+            if None not in self.bank:                             # bank 里不存在 None，四份交换牌已经都在 bank 里
                 if self.n_games % 4 == 1:   # pass to left
                     for i, player in enumerate(self.players):
                         player.hand += self.bank[i - 1]
+                        player.exchange_in = self.bank[i - 1]
                 elif self.n_games % 4 == 2: # pass to right
                     for i, player in enumerate(self.players):
                         player.hand += self.bank[(i + 1) % 4]
+                        player.exchange_in = self.bank[(i + 1) % 4]
                 elif self.n_games % 4 == 3: # pass to cross
                     for i, player in enumerate(self.players):
                         player.hand += self.bank[(i + 2) % 4]
+                        player.exchange_in = self.bank[(i + 2) % 4]
                 else:
                     #raise FatalError('Game# mod 4 == 0')
                     for i, player in enumerate(self.players):
                         player.hand += self.bank[(i) % 4]
+                        player.exchange_in = self.bank[(i) % 4]
 
                 self.exchanged = True
-                self._find_hearts_A()
+                self._find_hearts_A()                 # 交换结束，找红心A，进入暴露阶段
             else:
                 self.cur_pos = (self.cur_pos + 1) % n_players
         elif not self.finish_expose:
@@ -270,7 +277,7 @@ class Table():
                 self.heart_exposed = True
 
             self.finish_expose = True
-            self._find_clubs_2()     # 找到有 梅花2 的玩家
+            self._find_clubs_2()                       # 暴露结束，找梅花2 的玩家，进入出牌阶段
         else:
             if len(draws) > 1:
                 raise DrawMoreThanOneError('Draw more than 1 card')
@@ -296,10 +303,12 @@ class Table():
                     raise RuleError('Suit does not match')
 
             self.board[cur_pos] = draw
-            if suit == H or draw == (10, S):
-                self.heart_occur = True
             self.players[cur_pos].hand.remove(draw)
             self.players[cur_pos].outgoing.append(draw)  # 打出一张牌
+
+            if suit == H or draw == (10, S):           # 黑桃Q 出现
+                self.heart_occur = True
+
 
             if None not in self.board:
                 max_rank, first_suit = self.first_draw

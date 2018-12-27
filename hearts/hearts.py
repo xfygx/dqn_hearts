@@ -95,18 +95,68 @@ class HeartsEnv(gym.Env):
         return l + [v] * (n - len(l))
 
     # return :
-    # 0 ~ 3 
-    # hand cards
-    # outgoing cards
-    # incoming cards
-    # score cards
-    # score
-    # start_pos
-    # current_pos
-    # 
+    # players 0 ~ 3 
+    #   score    
+    #   hand cards
+    #   outgoing cards
+    #   income cards
+    #   exchange_out cards
+    #   exchange_in cards
+    # table
+    #   start_pos
+    #   current_pos
+    #   heart_exposed
+    #   round
+    #   boards
 
-    def get_current_situation(self):
-        return 
+    def get_current_env(self):
+        player_states = []
+        for idx, player in enumerate(self._table.players):
+            player_features = [
+                int(player.score),
+            ]
+            
+            player_hand = []
+            for card in player.hand:
+                player_hand += card
+            player_hand = self._pad(player_hand, 13, (-1, -1))            # 手牌最多 13 张
+
+            player_outgoing = []
+            for card in player.outgoing:
+                player_outgoing += card
+            player_outgoing = self._pad(player_outgoing, 13, (-1, -1))    # 手牌最多 13 张
+
+            player_income = []
+            for card in player.income:
+                player_income += card)
+            player_income = self._pad(player_income, 15, (-1, -1))         # 吃下的牌最多 13 + 1 + 1
+
+            player_exchange_out = []
+            for card in player.exchange_out:
+                player_exchange_out += card
+
+            player_exchange_in = []
+            for card in player.exchange_in:
+                player_exchange_in += card
+
+            # Tuple: [int], ([r, s], [r, s], ...), ([r, s], [r, s], ...)
+            player_states = [tuple(player_features), tuple(player_hand), tuple(player_outgoing),tuple(player_income), tuple(player_exchange_out), tuple(player_exchange_in)]
+
+            #print(player_states)
+
+        table_states = [
+            int(self._table.n_round),
+            int(self._table.start_pos),
+            int(self._table.cur_pos),
+            int(self._table.exchanged),
+            int(self._table.heart_occur),
+            int(self._table.n_games),
+            int(self._table.finish_expose),
+            int(self._table.heart_exposed),
+            self._table.board
+        ]
+
+        return tuple(player_states), tuple(table_states)
 
     def _get_current_state(self):
         player_states = []
