@@ -102,7 +102,10 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+<<<<<<< HEAD
 
 # misc
 *.swp
 .idea/
+=======
+>>>>>>> c0b43216f1bd1d7fa5b758b2c91e10cce4cfa4aa
