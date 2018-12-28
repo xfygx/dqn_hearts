@@ -67,9 +67,7 @@ class HeartsEnv(gym.Env):
             time.sleep(self.render_delay)
 
     def step(self, action):
-        if not self.action_space.contains(action):
-            raise error.Error('Invalid action')
-        
+
         draws = []
         cur_pos, card_array = action
         for card in card_array:
@@ -78,16 +76,14 @@ class HeartsEnv(gym.Env):
             if rank >= 0 and suit >= 0:
                 draws.append((rank, suit))
 
-        score_before = self._table.players[cur_pos].get_rewards()
-
-        done, round_done, winner = self._table.step((cur_pos, draws))
-
-        score_after = self._table.players[cur_pos].get_rewards()
-        # XXX I think this is too simple
-        rewards = score_after - score_before  # 这里存在一个问题，只能得到cur_pos的分，其它玩家的分在这句里得不到
+        # (0,1,2,3)/-1
+        winner = self._table.step((cur_pos, draws))
 
         # TODO Maybe can return some debug info
-        return self._get_current_state(), rewards, done, round_done, winner
+        return winner
+
+    def restart(self):
+        self._table.game_start()
 
     def _pad(self, l, n, v):
         if (not l) or (l is None):
@@ -113,46 +109,45 @@ class HeartsEnv(gym.Env):
         player_states = []
         for idx, player in enumerate(self._table.players):
             player_features = [
-                int(player.score),
+                int(player.score)
             ]
             
-            player_hand = []
-            for card in player.hand:
-                player_hand += card
-            player_hand = self._pad(player_hand, 13, (-1, -1))            # 手牌最多 13 张
+            player_hand = player.hand
+            # for card in player.hand:
+            #     player_hand += card
+            # player_hand = self._pad(player_hand, 13, (-1, -1))            # 手牌最多 13 张
 
-            player_outgoing = []
-            for card in player.outgoing:
-                player_outgoing += card
-            player_outgoing = self._pad(player_outgoing, 13, (-1, -1))    # 手牌最多 13 张
+            player_outgoing = player.outgoing
+            #for card in player.outgoing:
+            #    player_outgoing += card
+            # player_outgoing = self._pad(player_outgoing, 13, (-1, -1))    # 手牌最多 13 张
 
-            player_income = []
-            for card in player.income:
-                player_income += card)
-            player_income = self._pad(player_income, 15, (-1, -1))         # 吃下的牌最多 13 + 1 + 1
+            player_income = player.income
+            #for card in player.income:
+            #    player_income += card
+            # player_income = self._pad(player_income, 15, (-1, -1))         # 吃下的牌最多 13 + 1 + 1
 
-            player_exchange_out = []
-            for card in player.exchange_out:
-                player_exchange_out += card
+            player_exchange_out = player.exchange_out
+            #for card in player.exchange_out:
+            #    player_exchange_out += card
 
-            player_exchange_in = []
-            for card in player.exchange_in:
-                player_exchange_in += card
+            player_exchange_in = player.exchange_in
+            #for card in player.exchange_in:
+            #    player_exchange_in += card
 
             # Tuple: [int], ([r, s], [r, s], ...), ([r, s], [r, s], ...)
-            player_states = [tuple(player_features), tuple(player_hand), tuple(player_outgoing),tuple(player_income), tuple(player_exchange_out), tuple(player_exchange_in)]
+            player_states += [[tuple(player_features), tuple(player_hand), tuple(player_income), tuple(player_outgoing),tuple(player_exchange_out), tuple(player_exchange_in)]]
 
-            #print(player_states)
+        # print(player_states)
 
         table_states = [
             int(self._table.n_round),
             int(self._table.start_pos),
             int(self._table.cur_pos),
-            int(self._table.exchanged),
-            int(self._table.heart_occur),
+            self._table.exchanged,
+            self._table.heart_occur,
             int(self._table.n_games),
-            int(self._table.finish_expose),
-            int(self._table.heart_exposed),
+            self._table.first_draw,
             self._table.board
         ]
 
@@ -177,7 +172,7 @@ class HeartsEnv(gym.Env):
 
             # Tuple: [int], ([r, s], [r, s], ...), ([r, s], [r, s], ...)
             player_features += [tuple(player_hand), tuple(player_income)]
-            player_states += player_features
+            player_states += tuple(player_features)
 
             #print(player_hand)
 

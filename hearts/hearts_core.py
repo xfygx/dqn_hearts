@@ -29,10 +29,10 @@ RANK_TO_CARD = {
 }
 
 SUIT_TO_CARD = {
-    0: 's',
-    1: 'h',
-    2: 'd',
-    3: 'c',
+    0: 's',    # 黑桃
+    1: 'h',    # 红桃
+    2: 'd',    # 方块
+    3: 'c',    # 梅花
 }
 
 deck = [(rank, suit) for rank in range(13) for suit in range(4)]
@@ -121,15 +121,12 @@ class Table():
             player.income = []
             player.outgoing = []
             player.score = 0
-
-        if self.n_games % 4 == 0:
-            self._find_hearts_A()
+            player.deal_score = 0
 
         self.board = [None for _ in range(n_players)]
         self.backup = [None for _ in range(n_players)]
 
     def _need_exchange(self):
-        # if not self.exchanged and self.n_games % 4 != 0: # 修改为每盘都交换牌
         if not self.exchanged:
             return True
         return False
@@ -159,8 +156,7 @@ class Table():
     def _find_clubs_2(self): # 寻找梅花2 0C
         for i, player in enumerate(self.players):
             if (0, C) in player.hand:
-                self.start_pos = i         
-                self.orig_player = i       # 设置开始的位置  这里可以做为 orig_player
+                self.start_pos = i
 
         self.cur_pos = self.start_pos
 
@@ -240,9 +236,10 @@ class Table():
                 raise DrawLessThanThreeError('Draws less than 3')
 
             self.bank[cur_pos] = draws
+            self.players[cur_pos].exchange_out = draws        # 交换牌，移出的牌记下来
             for draw in draws:
-                self.players[cur_pos].hand.remove(draw)           # 交换牌，从手牌中移出一张
-                self.players[cur_pos].exchange_out += draw        # 交换牌，移出的牌记下来
+                self.players[cur_pos].hand.remove(draw)       # 交换牌，从手牌中移出一张
+                
 
             if None not in self.bank:                             # bank 里不存在 None，四份交换牌已经都在 bank 里
                 if self.n_games % 4 == 1:   # pass to left
@@ -264,20 +261,9 @@ class Table():
                         player.exchange_in = self.bank[(i) % 4]
 
                 self.exchanged = True
-                self._find_hearts_A()                 # 交换结束，找红心A，进入暴露阶段
+                self._find_clubs_2()                       # 暴露结束，找梅花2 的玩家，进入出牌阶段
             else:
                 self.cur_pos = (self.cur_pos + 1) % n_players
-        elif not self.finish_expose:
-            if len(draws) > 1:
-                raise DrawMoreThanOneError('Draw more than 1 card')
-
-            if len(draws) == 1:
-                if draws[0] != (12, H):
-                    raise ExposeError('Must expose hearts A')
-                self.heart_exposed = True
-
-            self.finish_expose = True
-            self._find_clubs_2()                       # 暴露结束，找梅花2 的玩家，进入出牌阶段
         else:
             if len(draws) > 1:
                 raise DrawMoreThanOneError('Draw more than 1 card')
@@ -285,7 +271,8 @@ class Table():
             draw = draws[0]
             rank, suit = draw
             if self.start_pos == cur_pos:
-                if self.n_round == 0 and (0, C) != draw:      # 第一张牌必须是 梅花2, 这里C就是3
+                self.board = [None for _ in range(n_players)]
+                if self.n_round == 0 and (0, C) != draw:      # round 0 的第一张牌必须是 梅花2, 这里C就是3
                     raise FirstDrawError('The first draw must be (0, 3)')
                 if not self.heart_occur and suit == H:
                     for card in self.players[cur_pos].hand:
@@ -309,7 +296,6 @@ class Table():
             if suit == H or draw == (10, S):           # 黑桃Q 出现
                 self.heart_occur = True
 
-
             if None not in self.board:
                 max_rank, first_suit = self.first_draw
                 for i, (board_rank, board_suit) in enumerate(self.board):
@@ -319,10 +305,9 @@ class Table():
                 self.start_pos = self.board.index((max_rank, first_suit)) # 计算下一轮是哪位玩家
                 self.players[self.start_pos].income += self.board   # 收下牌
                 self.backup = self.board
-                self.board = [None for _ in range(n_players)]
                 self.first_draw = None
                 round_done = True
-                self.n_round += 1   # 这一 trick 打完
+                self.n_round += 1   # 这一 round 打完
                 self.cur_pos = self.start_pos
 
                 for player in self.players:
@@ -339,21 +324,15 @@ class Table():
                 player.score = player.deal_score + player.get_rewards(self.heart_exposed) # 玩家自已算分
 
         if self.n_round == 13:
-            #if self.n_games == 16:
-                # Game Over
-            #    return True, round_done
-
             # 计算 winner
             for i, player in enumerate(self.players):
                 if (player.score > max_score):
                     winner = i
                     max_score = player.score
-                player.deal_score = player.score = 0 # 清掉积累的分，原程序是会累积的
 
             round_done = True
-            self.game_start()   # 开始新的 deal 
 
-        return False, round_done, winner
+        return winner
 
     def _step(self, actions):
         self.step(actions)

@@ -284,7 +284,7 @@ class ToepQNetworkTrainer:
         self.boltzmann_steps = 500000
         self.save_path = 'nets'
         self.log_path = 'logs'
-        self.load_model = True
+        self.load_model = False
 
         self.reset()
 

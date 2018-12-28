@@ -29,9 +29,11 @@ class RandomBot(BotBase):
     def declare_action(self, player_obs, table_obs):
         action = [self.idx]
 
-        score, (hand,), (income,) = player_obs
-        n_round, start_pos, cur_pos, exchanged, hearts_occur, n_game,\
-            finish_expose, heart_exposed, orig_player, board, (first_draw,), bank = table_obs
+        # print(player_obs[self.idx])
+        # print(table_obs)
+
+        score, hand, income, outgoing, exchange_in, exchange_out = player_obs[self.idx]
+        n_round, start_pos, cur_pos, exchanged, hearts_occur, n_game, first_draw, board = table_obs
 
         hand_card = [c for c in hand if c[0] != -1 or c[1] != -1]
         board_card = [c for c in board]
@@ -42,29 +44,50 @@ class RandomBot(BotBase):
         if not exchanged:
             # 3 cards
             draws = random.sample(hand, 3)
-        elif not finish_expose:
-            draws = [array([12, 1]), array([-1, -1]), array([-1, -1])]
         else:
             # 1 card
             if self.idx == start_pos and n_round == 0:
-                draws = [array([0, 3])]
+                draws = [(0, 3)]
+                valid_actions.append((0, 3))
             else:
-                for card in hand_card:
-                    if card[1] == first_draw[1]:
-                        draws = [card]
-                        for c in hand_card:   # 如果找到了同花色的一张牌，就把所有同花色的牌加到valid actions中
-                            if c[1] == first_draw[1]:
-                                valid_actions.append(c)
-                        break
-                else:
+                if first_draw is not None:                
+                    for card in hand_card:
+                        if card[1] == first_draw[1]:
+                            draws = [card]
+                            for c in hand_card:   # 如果找到了同花色的一张牌，就把所有同花色的牌加到valid actions中
+                                if c[1] == first_draw[1]:
+                                    valid_actions.append(c)
+                            break
+                    else:
+                        for card in hand_card:
+                            (rank, suit) = (card[0], card[1])
+                            if n_round == 0:
+                                if suit != 1 and not (card == (10, 0)):
+                                    draws = [card]
+                                    for c in hand_card:  # 第一轮，所以，只能出
+                                        (rank, suit) = (c[0], c[1])
+                                        if suit != 1 and not ( c == (10, 0)):  
+                                            valid_actions.append(c)
+                                    break
+                            elif not hearts_occur and suit != 1: # 不是第一轮，但红心没有出现，所有不是红心的都可以出
+                                draws = [card]
+                                for c in hand_card:
+                                    (rank, suit) = (c[0], c[1])
+                                    if suit != 1:
+                                        valid_actions.append(c)
+                                break
+                        else:
+                            draws = [random.choice(hand_card)]
+                            valid_actions = hand_card
+                else: # 本 round 中第一张牌
                     for card in hand_card:
                         (rank, suit) = (card[0], card[1])
                         if n_round == 0:
-                            if suit != 1 and not all(card == (10, 0)):
+                            if suit != 1 and not (card == (10, 0)):
                                 draws = [card]
                                 for c in hand_card:  # 第一轮，所以，只能出
                                     (rank, suit) = (c[0], c[1])
-                                    if suit != 1 and not all( c == (10, 0)):  
+                                    if suit != 1 and not ( c == (10, 0)):  
                                         valid_actions.append(c)
                                 break
                         elif not hearts_occur and suit != 1: # 不是第一轮，但红心没有出现，所有不是红心的都可以出
@@ -78,61 +101,18 @@ class RandomBot(BotBase):
                         draws = [random.choice(hand_card)]
                         valid_actions = hand_card
 
-            draws += [array([-1, -1]), array([-1, -1])]
-
-        action.append(tuple(draws))
-        return tuple(action), [tuple(n.tolist()) for n in valid_actions]
-
-class SequentialBot(BotBase):
-    def declare_action(self, player_obs, table_obs):
-        action = [self.idx]
-
-        score, (hand,), (income,) = player_obs
-        n_round, start_pos, cur_pos, exchanged, hearts_occur, n_game,\
-            finish_expose, heart_exposed, board, (first_draw,), bank = table_obs
+            draws += [(-1, -1), (-1, -1)]
         
-        hand_card = sorted([c for c in hand if c[0] != -1 or c[1] != -1],\
-                key=lambda x: (x[1], x[0]), reverse=True)
-        board_card = [c for c in board]
-
-        if not exchanged and n_game % 4 != 0:
-            # 3 cards
-            draws = random.sample(hand, 3)
-        elif not finish_expose:
-            draws = [array([12, 1]), array([-1, -1]), array([-1, -1])]
-        else:
-            # 1 card
-            if self.idx == start_pos and n_round == 0:
-                draws = [array([0, 3])]
-            else:
-                for card in hand_card:
-                    if card[1] == first_draw[1]:
-                        draws = [card]
-                        break
-                else:
-                    for card in hand_card:
-                        (rank, suit) = (card[0], card[1])
-                        if n_round == 0:
-                            if suit != 1 and not all(card == (10, 0)):
-                                draws = [card]
-                                break
-                        elif not hearts_occur and suit != 1:
-                            draws = [card]
-                            break
-                    else:
-                        draws = [random.choice(hand_card)]
-
-            draws += [array([-1, -1]), array([-1, -1])]
-
-        action.append(tuple(draws))
-        return tuple(action)
+        # print(draws)
+        action.append(draws)
+        return tuple(action), tuple(valid_actions)
 
 class BotProxy:
     def __init__(self, render_delay=None, mode='human'):
         self.bots = [RandomBot(i) for i in range(4)]
         self.env = HeartsEnv(render_delay)
         self.mode = mode
-        self.trainer = ToepQNetworkTrainer()
+        # self.trainer = ToepQNetworkTrainer()
 
     def add_bot(self, pos, bot):
         self.bots[pos] = bot
@@ -237,43 +217,112 @@ class BotProxy:
 
         return pre_state, cur_state, valid_actions
 
-
-    def train_round(self, pre_state, reward, cur_state, valid_actions):
+    def clean_env_data(self, state):
         
-        pre_state, cur_state, valid_actions = self.conv_to_card(pre_state, cur_state, valid_actions)
+        for i in range(4):
+            for j in range(5):
+                t = state[0][i][j+1]
+                t = sorted(t)
+                t = sorted(t, key=lambda a: a[1])
+                state[0][i][j+1] = tuple(t)
+
+        return state
+
+    def train_round(self, pre_state, cur_state, start_pos, valid_actions):
+        
+        # sort
+        state      = self.clean_env_data(pre_state)
+        state_next = self.clean_env_data(cur_state)
+        for i in range(4):
+            t = valid_actions[i]
+            t = sorted(t)
+            t = sorted(t, key=lambda a: a[1])            
+            valid_actions[i] = t
 
         return self.trainer.train_round(pre_state, reward, cur_state, valid_actions) # 送入网络
 
-    def cards_to_exchange(self, obs):
-        return draws
-
     def run_a_round(self):
+
+        pre_obs = self.env.get_current_env() # deepcopy ?
+        valid_actions = [[],[],[],[]]
+
+        start_pos = pre_obs[1][1]
+        print("    Play a round ==== start_pos = %d" % start_pos)
+
         for i in range(0, 4):
-            action, valid_actions = self.bots[cur_pos].declare_action(player_obs, obs[1]) 
-            self.env.step(action)
+            obs = self.env.get_current_env()
 
-        self.train_round()
+            player_obs = obs[0]
+            table_obs  = obs[1]
 
-    def run_a_deal(self, obs):
-        # exchange
-        # for 4
-        #     step => state
-        #     if done , do train
-        # return 
-        
+            pos = (start_pos + i ) % 4
+            action, valid_actions[pos] = self.bots[pos].declare_action(player_obs, table_obs)
+            deal_winner = self.env.step(action)
+
+        cur_obs = self.env.get_current_env()
+
+        print(pre_obs)
+        print(cur_obs)
+        print(valid_actions)
+
+        self.train_round(pre_obs, cur_obs, start_pos, valid_actions)
+
+        print("    Done for a round ==== ")
+        return deal_winner
+
+    def run_a_deal(self):
+       
+        print("Play a deal ====")
+
         obs = self.env.get_current_env()
-        for i in range(0, 4):
-            self.bots[i].
-            draws = card_to_exchange(obs)
-            action = , draws
-            self.env.step(action)
+        print(obs)
 
-        for i in range(0, 13):
-            run_a_round()
+        player_obs = obs[0]
+        table_obs  = obs[1]
+
+        start_pos = table_obs[1]
+        cur_pos   = table_obs[2]
+        exchanged = table_obs[3]
+
+        print("    Exchange begin ====")
+        if ( exchanged == False ):
+            for i in range(4):
+                pos = (start_pos + i ) % 4
+                action, valid_actions = self.bots[pos].declare_action(player_obs, table_obs)
+                print(action)
+                self.env.step(action)
+        else:
+            print("need to exchange. but.....")
+            exit(-1)
+
+        print("    Exchange is done ====")
+
+        for i in range(13):
+            deal_winner = self.run_a_round()
+
+        obs = self.env.get_current_env()
+        print(obs)
+        print("deal_winner = %d" % deal_winner)
+        print("Done for a deal ====")
+
+        self.env.restart()
 
         return
 
+    def run_once(self):
+        obs = self.env.reset()
+        done = False
 
+        episode_idx = 0
+        n_games = 0
+        while not done:
+            self.run_a_deal()
+            time.sleep(10)
+            n_games += 1
+            if n_games % 1000 == 0:
+                print( "game %d" % n_games )
+
+'''
     def run_once(self):
         obs = self.env.reset()   # 游戏开始
         done = False
@@ -440,3 +489,4 @@ class BotProxy:
 
         self.env.render(self.mode)
         return obs
+'''
