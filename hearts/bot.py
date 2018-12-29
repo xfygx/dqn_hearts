@@ -1,3 +1,4 @@
+#coding=utf-8
 import random
 import logging
 import time
@@ -228,38 +229,44 @@ class BotProxy:
 
         return state
 
-    def train_hand(self, pos, pre_state, cur_state, start_pos, pre_valid_actions, cur_valid_actions):
-        return self.trainer.train_hand(pos, pre_state, cur_state, start_pos, pre_valid_actions, cur_valid_actions) 
-
-    def train_round(self, pre_state, cur_state, start_pos, pre_valid_actions, cur_valid_actions):
+    def train_round(self, pre_state, cur_state, valid_actions, valid_actions_next):
         
         # sort
         state      = self.clean_env_data(pre_state)
         state_next = self.clean_env_data(cur_state)
-        for i in range(4):
-            t = pre_valid_actions[i]
-            t = sorted(t)
-            t = sorted(t, key=lambda a: a[1])            
-            pre_valid_actions[i] = t
 
-            t = cur_valid_actions[i]
-            t = sorted(t)
-            t = sorted(t, key=lambda a: a[1])            
-            cur_valid_actions[i] = t
+        pos = state[1][1]
 
-        for i in range(0, 4):
-            pos = (start_pos + i ) % 4
-            self.train_hand(pos, pre_state, cur_state, start_pos, pre_valid_actions, cur_valid_actions)
+        t = valid_actions[pos]
+        t = sorted(t)
+        t = sorted(t, key=lambda a: a[1])            
+        valid_actions_player = t
 
-        return 
+        t = valid_actions_next[pos]
+        t = sorted(t)
+        t = sorted(t, key=lambda a: a[1])            
+        valid_actions_next_player = t
+
+        return self.trainer.train_hand(pre_state, cur_state, valid_actions_player, valid_actions_next_player)
         
+    def train_deal(self, obs, valid_actions):
 
-    def run_a_round(self, pre_valid_actions):
+        for i in range(14):
+            start_pos = obs[i][1][1]
+            for j in range(i+1, 14):
+                start_pos_next = obs[j][1][1]
 
-        pre_obs = self.env.get_current_env() # deepcopy ?
-        cur_valid_actions = [[],[],[],[]]
+                if (start_pos == start_pos_next):
+                    # train a round
+                    self.train_round(obs[i], obs[j], valid_actions[i], valid_action[j])
+                    pass
 
-        start_pos = pre_obs[1][1]
+    def run_a_round(self):
+
+        obs = self.env.get_current_env() # deepcopy ?
+        valid_actions = [[],[],[],[]]
+
+        start_pos = obs[1][1]
         print("    Play a round ==== start_pos = %d" % start_pos)
 
         for i in range(0, 4):
@@ -269,20 +276,15 @@ class BotProxy:
             table_obs  = obs[1]
 
             pos = (start_pos + i ) % 4
-            action, cur_valid_actions[pos] = self.bots[pos].declare_action(player_obs, table_obs)
+            action, valid_actions[pos] = self.bots[pos].declare_action(player_obs, table_obs)
             deal_winner = self.env.step(action)
 
-        cur_obs = self.env.get_current_env()
+        obs = self.env.get_current_env()
 
-        print(pre_obs)
-        print(pre_valid_actions)        
-        print(cur_obs)
-        print(cur_valid_actions)
-
-        self.train_round(pre_obs, cur_obs, start_pos, pre_valid_actions, cur_valid_actions)
+        # self.train_round(pre_obs, cur_obs, start_pos, valid_actions)
 
         print("    Done for a round ==== ")
-        return cur_valid_actions, deal_winner
+        return obs, valid_actions, deal_winner
 
     def run_a_deal(self):
        
@@ -311,14 +313,27 @@ class BotProxy:
 
         print("    Exchange is done ====")
 
-        valid_actions = [[],[],[],[]]
-        for i in range(13):
-            valid_actions, deal_winner = self.run_a_round(valid_actions)
+        
+        # collect all rounds 
+        obs = []
+        valid_actions = []
+        for i in range(14):
+            obs.append('')
+            valid_actions.append('')
 
-        obs = self.env.get_current_env()
-        print(obs)
+        obs[0] = self.env.get_current_env()
+        for i in range(13):
+            obs[i+1], valid_actions[i], deal_winner = self.run_a_round()
+        valid_actions[13] = []
+
+        for i in range(14):
+            print(obs[i])
+            print(valid_actions[i])
+
         print("deal_winner = %d" % deal_winner)
         print("Done for a deal ====")
+
+        self.train_deal(obs, valid_actions)
 
         self.env.restart()
 

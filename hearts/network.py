@@ -645,29 +645,27 @@ class ToepQNetworkTrainer:
         start_pos = state[1][2]
 
         valid_actions = valid_actions[pos]
-      
-        current_player_hand_vec = 
-
 
         state_vec = np.concatenate([current_player_hand_vec] + table_vecs + [np.array(single_values_vec)] + [action_vec])
 
         return state_vec
 
-    def train_hand(self, pos, state, state_next, start_pos, valid_actions, valid_actions_next):
+    def train_hand(self, pos, state, state_next, valid_actions, valid_actions_next):
         # pos is player index. This player's data will be header of vector.
+        pos = state[1][1]
         state_vec = state_to_vec(pos, state, valid_actions[pos])
         state_vec_next = state_to_vec(pos, state_next, valid_actions_next[pos])
 
         valid_actions_next = actions_to_vec(valid_actions_next[pos])
 
-        action_idx = get_action(pos, sate_vec_next)
+        action_idx = get_action(pos, state)
 
         reward = get_reward(pos, state, state_next)
 
         self.ep_buffer.add(np.reshape(np.array([state_vec, action_idx, reward, state_vec_next, valid_actions_next, reward == 1 or reward == -1]), [1, 6]))
 
 
-        if ( state_next.hand = 0 ):
+        if ( state_next.hand == 0 ):
             self.experience_buffer.add(ep_buffer.buffer)
             self.ep_buffer = ToepExperienceBuffer() 
 
