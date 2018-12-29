@@ -84,6 +84,15 @@ class ToepState:
        is action 12 valid, (x1)
        is action 13 valid, (x1)       
        total 780 + 18 = 798"""
+
+    """
+    player hand, val,  13 * 13
+    player hand, suit, 13 * 4
+    player income, val, 15 * 13
+    player incomde, suit, 15 * 4
+    player exchange
+
+    """
     STATE_SIZE = 1123
     def __init__(self, game):
         current_player_hand = game.players[game.phase.current_player].hand
@@ -306,6 +315,7 @@ class ToepQNetworkTrainer:
 
         # setup experience buffer
         self.experience_buffer = ToepExperienceBuffer()
+        self.ep_buffer = ToepExperienceBuffer() 
 
         # we employ Boltzmann exploration
         self.boltzmann_temp = self.start_boltzmann_temp
@@ -622,21 +632,43 @@ class ToepQNetworkTrainer:
 
         return ep_loss, self.boltzmann_temp, self.n_steps, ep_buffer
 
-    def train(self):
-        with tf.device('/gpu:0'):
-            for episode_idx in range(0, self.n_episodes):
-                verbose = episode_idx % 100 == 0
-                #verbose = False
-                [game, ep_loss] = trainer.train_episode(verbose)
+    def state_to_vec(self, pos, state, valid_actions):
 
-                if episode_idx % 100 == 0:
-                    test_result = self.test_rounds(10)
-                    print("Episode {0} P1 {1} P2 {2} L {3} BT {4}".format(episode_idx, test_result[0], test_result[1], ep_loss, self.boltzmann_temp))
-                if episode_idx > 0 and episode_idx % 2000 == 0:
-                    self.saver.save(self.session, os.path.join(self.save_path, "model_{0:02d}.ckpt".format(episode_idx)))
-                    print("Saved model")
+        current_player_hand = state[0][pos][1]
+        
+        for i in range(4):
+            idx = (pos + i ) % 4
+            table_cards[i] = state[0][idx][2]
+            single_values_score[i] = state[0][idx][0][0]
 
-if __name__=="__main__":
-    trainer = ToepQNetworkTrainer()
+        n_round   = state[1][0] + 1
+        start_pos = state[1][2]
 
-    trainer.train()
+        valid_actions = valid_actions[pos]
+      
+        current_player_hand_vec = 
+
+
+        state_vec = np.concatenate([current_player_hand_vec] + table_vecs + [np.array(single_values_vec)] + [action_vec])
+
+        return state_vec
+
+    def train_hand(self, pos, state, state_next, start_pos, valid_actions, valid_actions_next):
+        # pos is player index. This player's data will be header of vector.
+        state_vec = state_to_vec(pos, state, valid_actions[pos])
+        state_vec_next = state_to_vec(pos, state_next, valid_actions_next[pos])
+
+        valid_actions_next = actions_to_vec(valid_actions_next[pos])
+
+        action_idx = get_action(pos, sate_vec_next)
+
+        reward = get_reward(pos, state, state_next)
+
+        self.ep_buffer.add(np.reshape(np.array([state_vec, action_idx, reward, state_vec_next, valid_actions_next, reward == 1 or reward == -1]), [1, 6]))
+
+
+        if ( state_next.hand = 0 ):
+            self.experience_buffer.add(ep_buffer.buffer)
+            self.ep_buffer = ToepExperienceBuffer() 
+
+        return
